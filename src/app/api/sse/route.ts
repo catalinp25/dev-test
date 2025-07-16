@@ -25,24 +25,49 @@ export async function GET(req: NextRequest) {
 
   // Variable to hold the heartbeat interval id
   let heartbeat: NodeJS.Timeout | undefined;
+  // Track if the stream is already closed
+  let closed = false;
 
   // Create a ReadableStream to send SSE data
   const stream = new ReadableStream({
     start(controller) {
-      // Utility function to send an SSE event
+      // Utility function to send an SSE event with error handling
       function sendEvent(data: string, event?: string) {
-        let payload = "";
-        if (event) payload += `event: ${event}\n`;
-        payload += `data: ${data}\n\n`;
-        controller.enqueue(new TextEncoder().encode(payload));
+        try {
+          let payload = "";
+          if (event) payload += `event: ${event}\n`;
+          payload += `data: ${data}\n\n`;
+          controller.enqueue(new TextEncoder().encode(payload));
+        } catch (err) {
+          // Log error and close the stream if enqueue fails
+          console.error(`Error sending event to client ${clientId}:`, err);
+          cleanup();
+        }
+      }
+
+      // Cleanup function to remove client, clear interval, and close stream
+      function cleanup() {
+        if (closed) return;
+        closed = true;
+        sseManager.removeClient(clientId);
+        if (heartbeat) clearInterval(heartbeat);
+        try {
+          controller.close();
+        } catch (err) {
+          // Ignore if already closed
+        }
+        console.log(`[SSE] Client disconnected: ${clientId}`);
       }
 
       // Register this client with the SSEManager
       sseManager.addClient({
         id: clientId,
         send: sendEvent,
-        close: () => controller.close(),
+        close: cleanup,
       });
+
+      // Log client connection
+      console.log(`[SSE] Client connected: ${clientId}`);
 
       // Send a test event when the client connects
       sendEvent(
@@ -56,10 +81,12 @@ export async function GET(req: NextRequest) {
       }, HEARTBEAT_INTERVAL);
     },
     cancel() {
-      // Remove the client from the SSEManager when the connection is closed
+      // Cleanup everything when the client disconnects
+      // (This is called automatically by the stream)
       sseManager.removeClient(clientId);
-      // Cleanup the heartbeat interval
       if (heartbeat) clearInterval(heartbeat);
+      closed = true;
+      console.log(`[SSE] Client disconnected: ${clientId}`);
     },
   });
 
