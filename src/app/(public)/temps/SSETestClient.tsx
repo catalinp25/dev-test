@@ -25,8 +25,11 @@ export default function SSETestClient() {
       setEventType("");
     };
     es.onmessage = (event) => {
-      setLatestEvent(event.data);
-      setEventType(event.type || "message");
+      // event.data is always string for EventSource
+      setLatestEvent(
+        typeof event.data === "string" ? event.data : String(event.data),
+      );
+      setEventType(typeof event.type === "string" ? event.type : "message");
     };
     es.onerror = () => {
       setConnected(false);
@@ -36,11 +39,15 @@ export default function SSETestClient() {
     };
     // Listen for custom events (e.g., 'connected', 'ping')
     es.addEventListener("connected", (event: MessageEvent) => {
-      setLatestEvent(event.data);
+      setLatestEvent(
+        typeof event.data === "string" ? event.data : String(event.data),
+      );
       setEventType("connected");
     });
     es.addEventListener("ping", (event: MessageEvent) => {
-      setLatestEvent(event.data);
+      setLatestEvent(
+        typeof event.data === "string" ? event.data : String(event.data),
+      );
       setEventType("ping");
     });
   };
@@ -51,7 +58,6 @@ export default function SSETestClient() {
     return () => {
       if (eventSourceRef.current) eventSourceRef.current.close();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

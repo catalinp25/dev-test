@@ -7,7 +7,7 @@ declare global {
 
 // Get the singleton instance of SSEManager
 function getSSEManager(): SSEManager {
-  return global.__sseManager || (global.__sseManager = new SSEManager());
+  return global.__sseManager ?? (global.__sseManager = new SSEManager());
 }
 
 /**

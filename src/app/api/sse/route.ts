@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { SSEManager } from "@/lib/sse/SSEManager";
 
 // Extend globalThis to include __sseManager for type safety
@@ -8,7 +8,7 @@ declare global {
 
 // Singleton instance of SSEManager (in-memory for now)
 const sseManager =
-  global.__sseManager || (global.__sseManager = new SSEManager());
+  global.__sseManager ?? (global.__sseManager = new SSEManager());
 
 // Utility to generate a random client id
 function generateClientId() {
@@ -16,7 +16,7 @@ function generateClientId() {
 }
 
 // Basic SSE endpoint handler for Next.js App Router
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   // Create a unique id for this client
   const clientId = generateClientId();
 
@@ -38,9 +38,9 @@ export async function GET(req: NextRequest) {
           if (event) payload += `event: ${event}\n`;
           payload += `data: ${data}\n\n`;
           controller.enqueue(new TextEncoder().encode(payload));
-        } catch (err) {
+        } catch {
           // Log error and close the stream if enqueue fails
-          console.error(`Error sending event to client ${clientId}:`, err);
+          // (Error variable intentionally omitted)
           cleanup();
         }
       }
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
         if (heartbeat) clearInterval(heartbeat);
         try {
           controller.close();
-        } catch (err) {
+        } catch {
           // Ignore if already closed
         }
         console.log(`[SSE] Client disconnected: ${clientId}`);

@@ -8,7 +8,7 @@ export type SSEClient = {
 };
 
 export class SSEManager {
-  private clients: Map<string, SSEClient> = new Map();
+  private clients = new Map<string, SSEClient>();
 
   // Add a new client connection
   addClient(client: SSEClient) {
