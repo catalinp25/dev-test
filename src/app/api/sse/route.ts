@@ -1,7 +1,26 @@
 import { NextRequest } from "next/server";
+import { SSEManager } from "@/lib/sse/SSEManager";
+
+// Extend globalThis to include __sseManager for type safety
+declare global {
+  // eslint-disable-next-line no-var
+  var __sseManager: SSEManager | undefined;
+}
+
+// Singleton instance of SSEManager (in-memory for now)
+const sseManager =
+  global.__sseManager || (global.__sseManager = new SSEManager());
+
+// Utility to generate a random client id
+function generateClientId() {
+  return Math.random().toString(36).substring(2, 15);
+}
 
 // Basic SSE endpoint handler for Next.js App Router
 export async function GET(req: NextRequest) {
+  // Create a unique id for this client
+  const clientId = generateClientId();
+
   // Create a ReadableStream to send SSE data
   const stream = new ReadableStream({
     start(controller) {
@@ -13,13 +32,22 @@ export async function GET(req: NextRequest) {
         controller.enqueue(new TextEncoder().encode(payload));
       }
 
-      // Send a test event when the client connects
-      sendEvent(JSON.stringify({ message: "connected" }), "connected");
+      // Register this client with the SSEManager
+      sseManager.addClient({
+        id: clientId,
+        send: sendEvent,
+        close: () => controller.close(),
+      });
 
-      // The stream will remain open until the client disconnects
+      // Send a test event when the client connects
+      sendEvent(
+        JSON.stringify({ message: "connected", clientId }),
+        "connected",
+      );
     },
     cancel() {
-      // Cleanup logic can be added here if needed when the client disconnects
+      // Remove the client from the SSEManager when the connection is closed
+      sseManager.removeClient(clientId);
     },
   });
 
